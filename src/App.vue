@@ -8,20 +8,25 @@
               <p class="name">{{ account }} </p>
               <div class="dot" v-bind:class="[ online ? 'dot-green' : 'dot-red' ]"></div>
           </div>
-          <li v-for="(room,index) of rooms" :key="index" v-bind:id="user.id" @click="changeChat('room',room)">
-              <img v-bind:src="room.avatar" v-bind:alt="room.name">
-              <p>{{ room.name }} <span>({{ room.memberCount }})</span></p>
-              <div v-bind:class="[ room.has_message ? 'dot' : '' ]"></div>
-          </li>
-          <li v-for="(user,index) of users" :key="index" v-bind:id="user.name" @click="changeChat('user',user)">
-              <img v-bind:src="user.avatar" v-bind:alt="user.name">
-              <p>{{ user.name }}
-              <div v-bind:class="[ user.has_message ? 'dot' : '' ]"></div>
-          </li>
+        </div>
+        <div class="list">
+          <ul>
+            <li v-for="(room,index) of rooms" :key="index" v-bind:id="room.id" @click="changeChat('room',room)">
+                <img v-bind:src="room.avatar" v-bind:alt="room.name">
+                <p>{{ room.chatname }} <span>({{ room.memberCount }})</span></p>
+                <div v-bind:class="[ room.has_message ? 'dot' : '' ]"></div>
+            </li>
+            <li v-for="(user,index) of users" :key="index" v-bind:id="user.name" @click="changeChat('user',user)">
+                <img v-bind:src="user.avatar" v-bind:alt="user.name">
+                <p>{{ user.name }}
+                <div v-bind:class="[ user.has_message ? 'dot' : '' ]"></div>
+            </li>
+          </ul>
         </div>
       </el-aside>
       <el-container>
         <el-header height="10%">
+          {{currentChat.chatObj.chatname}}
             <!-- <el-dropdown @command="changeRoom">
               <span class="el-dropdown-link">
                 选择房间<i class="el-icon-arrow-down el-icon--right"></i>
@@ -32,8 +37,31 @@
             </el-dropdown> -->
         </el-header>
         <el-main class="message" height="65%">
-          <ul>
-              <div v-for="(item,index) of msgs" :key="index">
+          <ul v-if="currentChat.chatType == 'room'">
+              <div v-for="(item,index) of msgs.room[currentChat.chatObj.id]" :key="index">
+                <li v-if="item.msgType == 'joinRoom'">
+                    <p>{{item.time}}</p>
+                    <div class="text">{{ item.msg }}</div>
+                </li>
+                <li v-else-if="item.msgType == 'outRoom'">
+                    <p>{{item.time}}</p>
+                    <div class="text">{{ item.msg }}</div>
+                </li>
+                <li v-else-if="item.msgType == 'offline'">
+                    <p>{{item.time}}</p>
+                    <div class="text">{{ item.msg }}</div>
+                </li>
+                <li v-else>
+                    <p>{{item.time}}</p>
+                    <div class="msg" v-bind:class="item.from == account ? 'self' : ''">
+                        <img src="http://tva2.sinaimg.cn/crop.0.0.1022.1022.50/005Fj2RDgw1ex5pinpg65j30sg0sgdg9.jpg" alt="item.from">
+                        <div class="text">{{ item.msg }}</div>
+                    </div>
+                </li>
+              </div>
+          </ul>
+          <ul v-else-if="currentChat.chatType == 'user'">
+              <div v-for="(item,index) of msgs.user[currentChat.chatObj.account]" :key="index">
                 <li v-if="item.msgType == 'joinRoom'">
                     <p>{{item.time}}</p>
                     <div class="text">{{ item.msg }}</div>
@@ -50,6 +78,11 @@
                     </div>
                 </li>
               </div>
+          </ul>
+          <ul v-else>
+            <div>
+              <li><p>no message for you</p></li>
+            </div>
           </ul>
         </el-main>
         <el-footer height="25%">
@@ -92,7 +125,7 @@ export default {
       rooms: [
         {
           id: 1000,
-          chatname: '群聊A',
+          chatname: '公共频道',
           avatar: 'http://58pic.ooopic.com/58pic/12/25/04/02k58PICVwf.jpg',
           has_message: false,
           memberCount: 0,
@@ -100,17 +133,24 @@ export default {
         },
         {
           id: 1001,
-          chatname: '群聊B',
+          chatname: '八卦小分队',
           avatar: 'http://58pic.ooopic.com/58pic/12/25/04/02k58PICVwf.jpg',
           has_message: false,
           memberCount: 0,
           has_join: false
-        }
+        },
       ],
       users: [],
       currentChat : {
-        chatType: null,
-        chatObj: null
+        chatType: 'room',
+        chatObj: {
+          id: 1000,
+          chatname: '公共频道',
+          avatar: 'http://58pic.ooopic.com/58pic/12/25/04/02k58PICVwf.jpg',
+          has_message: false,
+          memberCount: 0,
+          has_join: false
+        },
       },
       clientNum: 0,
       showEmoji: false,
@@ -160,6 +200,7 @@ export default {
       }else{
         let data = res.data
         let status = res.status
+        let _this = this
         if(status == 200){
           switch(data.msgType){
             case 'login':
@@ -171,18 +212,62 @@ export default {
             case 'joinRoom':
               console.log('joinRoom')
               data.time = moment().format("HH:mm:ss")
-              this.msgs.room.push(data)
+              this.rooms.map(function(obj,key,arr){
+                  if(obj.id == data.roomId){
+                    obj.has_message = true
+                    obj.memberCount = data.count
+                  }
+                  return obj;
+              })
+              if(!this.msgs.room[data.roomId]){
+                this.msgs.room[data.roomId] = [];
+              }
+              this.msgs.room[data.roomId].push(data)
+              console.log(this.msgs.room[data.roomId])
               break
             case 'roomChat':
               console.log('roomChat')
               data.time = moment().format("HH:mm:ss")
-              this.msgs.room.push(data)
+              this.rooms.map(function(obj,key,arr){
+                  if(obj.id == data.roomId){
+                    obj.has_message = true
+                  }
+                  return obj;
+              })
+              if(!this.msgs.room[data.roomId]){
+                this.msgs.room[data.roomId] = [];
+              }
+              this.msgs.room[data.roomId].push(data)
               break
             case 'userChat':
               console.log('userChat')
               data.time = moment().format("HH:mm:ss")
-              this.msgs.user.push(data)
+              this.users.map(function(obj,key,arr){
+                  if(obj.account == data.account){
+                    obj.has_message = true
+                  }
+                  return obj;
+              })
+              if(!this.msgs.user[data.account]){
+                this.msgs.user[data.account] = [];
+              }
+              this.msgs.user[data.account].push(data)
               break
+            case 'offline':
+              console.log('offline')
+              console.log(data)
+              data.time = moment().format("HH:mm:ss")
+              if(data.rooms.length){
+                data.rooms.map(function(roomId,key,arr){
+                  _this.msgs.room[roomId].push(data)
+                })
+                this.rooms.map(function(obj,key,arr){
+                  if(data.rooms.includes(obj.id.toString())){
+                    obj.memberCount--
+                  }
+                  return obj;
+                })
+              }
             default:
               break
           }
@@ -217,11 +302,12 @@ export default {
     //   this.joinRoom()
     // },
     send() {
+      let info = {}
       if(this.msg != ''){
         if(this.currentChat.chatType == null){
           alert('请选择一个发送对象')
         }else if(this.currentChat.chatType=='room'){
-          let info = {
+          info = {
             "controller": "Index",   // 请求控制器
             "action": "sendToRoom",   // 请求方法
             "data":{    // 请求参数
@@ -231,7 +317,7 @@ export default {
             }
           }
         }else{
-          let info = {
+          info = {
             "controller": "Index",   // 请求控制器
             "action": "sendToRoom",   // 请求方法
             "data":{    // 请求参数
@@ -255,7 +341,15 @@ export default {
         if(!chatObj.has_join){
           this.joinRoom(chatObj.id)
         }
+        this.rooms.map(function(obj,key,arr){
+          if(obj.id == chatObj.id){
+            obj.has_message = false
+            obj.has_join = true
+          }
+          return obj;
+        })
       }
+      
     },
     joinRoom(roomId){
       let info = {
@@ -485,6 +579,7 @@ body{
   background-color: cadetblue;
   margin: 0 0;
   height: 20%;
+  text-align: center
 }
 
 .user-text{
