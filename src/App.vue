@@ -370,7 +370,7 @@ export default {
 <style lang="less">
 
 body{
-    background: url('./assets/bg.jpg');
+    background: url('./assets/dota2_dk.jpg');
     background-size: 100%;
     font-family: Helvetica, sans-serif;
     color: #4d4d4d;
